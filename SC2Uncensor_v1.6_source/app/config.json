@@ -1,0 +1,37 @@
+{
+  "_说明": {
+    "hotkeys": "快捷键设置, 支持单键与组合键(如 Ctrl+Alt+1)。改完生效: 界面版在\"快捷键设置\"里改完立即生效, 手工编辑本文件则需重启工具。注意: F1~F12 全部被星际2自带功能占用(闲兵/部队/镜头/成就/菜单/聊天/帮助), 默认改用 F8/F9/F11(主界面无功能的键)与 Ctrl+Alt+1。可用键名: 字母/主键盘数字1~0 / 小键盘 Num0~Num9 / NumAdd NumSub NumMul NumDiv NumDec / MouseMiddle Mouse4 Mouse5(鼠标中键侧键, 会被全局接管) / Pause ScrollLock / Insert Delete Home End PageUp PageDown / 方向键 Up Down Left Right / Tab Space Enter CapsLock Backspace / 符号键 ` - = [ ] \\ ; ' , . /。修饰键 Ctrl Alt Shift Win 可组合。",
+    "hotkeys.uncensor": "手动模式反和谐(F8): 需要部分手动操作的反和谐。程序完成内存部分反和谐(NOP+暴露), 然后需要用户手动去 选项>画面设置 里 勾选→取消勾选 一次(手动操作后反和谐生效)。",
+    "hotkeys.uncensor_auto": "自动模式反和谐(F9): 基于OCR自动操作菜单的全自动反和谐。程序完成内存部分反和谐+自动打开画面设置切换选项并返回原界面, 全程约2秒, 无需手动操作。",
+    "hotkeys.click_toggle": "自动切换和谐状态(F11): 自动打开画面设置切换\"减少暴力表现\"选项, 并返回原界面, 全程约2秒, 无需手动操作(再按一次切回)。",
+    "hotkeys.hotkey_master": "快捷键总开关(Ctrl+Alt+1): 按一下暂停其他所有快捷键(按键返还系统, 不影响其他软件使用), 再按一下恢复。总开关自身始终有效。",
+    "hotkeys.status": "显示当前状态(Ctrl+Alt+2): 显示 NOP/存储位/R 当前值(打在日志里), 纯查看不修改",
+    "hotkeys.restore": "手动关闭反和谐修改(Ctrl+Alt+3): 与手动反和谐相反。程序把内存部分恢复原状(NOP恢复+和谐位), 然后需要用户手动去 选项>画面设置 里 点一下\"减少暴力表现\"(点完恢复初始态)。",
+    "hotkeys.restore_auto": "自动关闭反和谐修改(Ctrl+Alt+4): 与全自动反和谐相反。程序把内存部分恢复原状+自动打开画面设置点一下\"减少暴力表现\"并返回原界面, 全程约2秒, 无需手动操作。",
+    "beep": "提示音开关(true=操作时有蜂鸣反馈)",
+    "log": "日志开关(true=每次运行写 sc2_uncensor.log, 覆盖式只保留最新一次)",
+    "verify_click_ms": "自动点击后等待存储位翻转的最长毫秒数(轮询, 通常几十毫秒就翻转并立刻继续; 超时才判未命中)。设成 0 或比 50 还小没有意义: 程序按 50ms 兜底——不加这个下限的话, 每次点击都会因为等不到翻转而被判成未命中",
+    "forward_keys": "按键转发(快捷键拦截补偿): 全局快捷键是独占的, 其他程序无法使用, 开启后按快捷键时异步把按键转发给前台的游戏(对局内 F8 镜头/F9 成就/F11 聊天等功能照常)。仅支持无修饰键的单键(字母/数字/F键/小键盘/编辑键区/符号键); 组合键与鼠标键不转发。默认键(F8/F9/F11, 主界面无功能)只在对局内转发; 改成非默认键后只要星际在前台就转发(不分对局内外)。",
+    "debug": "调试开关(true=把送OCR的图/像素扫描图存到 app/debug_*.png, 识别失败时发回分析)",
+    "admin": "启动时自动申请管理员权限(true=启动工具时就弹UAC提权(界面版双击exe/源码版双击bat), false=不弹)。默认false: SC2未提权时非管理员即可正常工作; 若对方以管理员启动SC2才需要true。以后UI里就是'管理员启动'勾选项",
+    "check_version": "游戏版本核对(true=挂载时核对, exe版本不在实测列表(V5.0.15/V5.0.16)则拒绝内存操作防写坏; false=跳过核对直接用——小补丁偏移通常不变, 可自行尝试, 风险自负)",
+    "screenshot": "截图方式: auto=自动(默认, 桌面截屏黑屏时自动改用按窗口抓) / bitblt=只用桌面截屏(最快) / printwindow=只用按窗口抓。独占全屏下若提示定位失败, 可试 printwindow(与绝区零一条龙同款 API)"
+  },
+  "hotkeys": {
+    "hotkey_master": "Ctrl+Alt+1",
+    "uncensor": "F8",
+    "uncensor_auto": "F9",
+    "click_toggle": "F11",
+    "status": "Ctrl+Alt+2",
+    "restore": "Ctrl+Alt+3",
+    "restore_auto": "Ctrl+Alt+4"
+  },
+  "beep": true,
+  "log": true,
+  "forward_keys": true,
+  "verify_click_ms": 300,
+  "debug": false,
+  "admin": false,
+  "check_version": true,
+  "screenshot": "auto"
+}
