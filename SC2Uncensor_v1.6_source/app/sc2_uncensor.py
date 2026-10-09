@@ -8,8 +8,8 @@ sc2_uncensor.py — 星际争霸2 国服反和谐工具 v1.6
   注: 少部分战役场景模型跟随简中语音包依然和谐。
   不建议在对战/天梯等PVP模式中使用本工具，
   PVE没什么审查 各种修改刷级很常见，PVP审查力度更大 没有经过测试 可能存在风险。
-  仅支持国服 Windows 64 位 V5.0.15/V5.0.16 版游戏，
-  会自动核对版本, 不符则停止 防止内存写坏，
+  仅支持国服 Windows 64 位、offsets.dat / 内置表里有完整四段版本号的客户端，
+  会自动核对 exe 内嵌版本(精确匹配, 不用 5.0.15.* 前缀), 不符则停止 防止内存写坏，
   但由于星际2deadgame,小补丁更新可能不会改变内存地址，
   所以可在 config.json设 "check_version": false 跳过核对自行尝试(风险自负)。
 
@@ -48,10 +48,11 @@ sc2_uncensor.py — 星际争霸2 国服反和谐工具 v1.6
   自动模式/自动切换和谐状态 会全程把星际拉到前台操作。 
   检测到在对局内时 自动点击等不生效(内存操作生效, 实测无害)。
 
-  版本核对说明: 启动时自动核对游戏版本(exe 内嵌版本号, 实测支持V5.0.15/V5.0.16), 
-  版本不符会拒绝内存操作(防止写坏)。星际2已进入维护期, 
-  小补丁的内存偏移通常不变，被版本核对拦住时, 可在 config.json
-  设 "check_version": false 跳过核对自行尝试(风险自负); 
+  版本核对说明: 启动时自动核对游戏版本(exe 内嵌完整四段号, 例如 5.0.15.32043 /
+  5.0.15.98370), 不在 offsets.dat / 内置表则拒绝内存操作(防止写坏)。星际2已进入
+  维护期, 小补丁的内存偏移通常不变，但同主版本号下 NOP 点也可能平移
+  (5.0.15.98370 相对 5.0.15.32043 后移 0x10, 旧偏移会把 call 打成半截导致卡死)。
+  被版本核对拦住时, 可在 config.json 设 "check_version": false 自行尝试(风险自负);
   新版本的内存偏移也可在 offsets.dat 添加条目适配(方法见 README.txt【进阶: 游
   戏更新后自己适配偏移】; 仓库里 docs/偏移维护指南.md 有更详细的流程)。
 """
@@ -84,7 +85,7 @@ BASE_DIR = (os.environ.get("SC2_UNCENSOR_DIR")
 CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
 VERSION = "1.6"
 
-# ---------------- 补丁位 (模块偏移 = Ghidra地址-0x140000000, 5.0.16b 实测) ----------
+# ---------------- 补丁位 (模块偏移 = Ghidra地址-0x140000000, 5.0.15.32043 实测) ----------
 NOP_SITES = [
     (0x11D9F0, bytes.fromhex("742A"), "CHN条件1"),
     (0x11D9F9, bytes.fromhex("7421"), "CHN条件2"),
@@ -96,14 +97,14 @@ OFF_R = 0x3E2B5A8                  # R 三态: 0=和谐 1=完整 2=CHN/ROK强制
 # 内置偏移的出厂副本(offsets.dat 不命中时重置用, 防上次会话的覆盖残留)
 _BUILTIN_NOP_SITES = list(NOP_SITES)
 _BUILTIN_OFF_STORE, _BUILTIN_OFF_R = OFF_STORE, OFF_R
-SUPPORTED_BUILDS = ("5.0.15", "5.0.16")   # 内置偏移实测可用: 5.0.15.32043(本机验证)与 5.0.16.x。
-# 内置偏移是写死的(不是特征扫描), 实测在 5.0.15/5.0.16 上有效。其他版本可在
-# offsets.dat(与 py 同目录, JSON 内容 .dat 后缀防误改)按格式加条目提供偏移;
-# 都没有且 check_version=true 时拒绝内存操作, 防止把别的版本写坏。
-# 适配方法见 README.txt(随包分发)与仓库 docs/偏移维护指南.md;
-# 自动重定位思路见 docs/特征重定位思路.md。
+# 内置偏移只对下列完整四段 exe 版本号有效。绝不能用 "5.0.15" 前缀放行:
+# 战网 5.0.17.98370 的 exe 内嵌仍是 5.0.15.98370, NOP 三处已相对 32043 后移 0x10,
+# 旧偏移会把 jz/call 打成半截, 一点"减少暴力表现"就卡死进程。
+# 其他版本请在 offsets.dat 按完整四段号加条目; 都没有且 check_version=true
+# 时拒绝内存操作。适配方法见 README.txt 与 docs/偏移维护指南.md。
 _BUILTIN_EXE_VER = "5.0.15.32043"   # 本机完整实测验证的 exe 内嵌版本号
 _BUILTIN_DISPLAY = "5.0.16.97579"   # 该版本在战网上显示的版本号(与 exe 内嵌版本不同步)
+SUPPORTED_BUILDS = (_BUILTIN_EXE_VER,)  # 无 offsets.dat 条目时允许回退内置偏移的精确版本
 
 # ---------------- 配置 ----------------
 DEFAULT_CONFIG = {
@@ -122,7 +123,7 @@ DEFAULT_CONFIG = {
         "forward_keys": "按键转发(快捷键拦截补偿): 全局快捷键是独占的, 其他程序无法使用, 开启后按快捷键时异步把按键转发给前台的游戏(对局内 F8 镜头/F9 成就/F11 聊天等功能照常)。仅支持无修饰键的单键(字母/数字/F键/小键盘/编辑键区/符号键); 组合键与鼠标键不转发。默认键(F8/F9/F11, 主界面无功能)只在对局内转发; 改成非默认键后只要星际在前台就转发(不分对局内外)。",
         "debug": "调试开关(true=把送OCR的图/像素扫描图存到 app/debug_*.png, 识别失败时发回分析)",
         "admin": "启动时自动申请管理员权限(true=启动工具时就弹UAC提权(界面版双击exe/源码版双击bat), false=不弹)。默认false: SC2未提权时非管理员即可正常工作; 若对方以管理员启动SC2才需要true。以后UI里就是'管理员启动'勾选项",
-        "check_version": "游戏版本核对(true=挂载时核对, exe版本不在实测列表(V5.0.15/V5.0.16)则拒绝内存操作防写坏; false=跳过核对直接用——小补丁偏移通常不变, 可自行尝试, 风险自负)",
+        "check_version": "游戏版本核对(true=挂载时按 exe 完整四段版本号核对, 不在 offsets.dat / 内置表则拒绝内存操作防写坏; false=跳过核对直接用内置偏移——同主版本号下 NOP 点也可能平移, 风险自负)",
         "screenshot": "截图方式: auto=自动(默认, 桌面截屏黑屏时自动改用按窗口抓) / bitblt=只用桌面截屏(最快) / printwindow=只用按窗口抓。独占全屏下若提示定位失败, 可试 printwindow(与绝区零一条龙同款 API)",
     },
     "hotkeys": {
@@ -325,7 +326,7 @@ NOTICE = [
     "※ （二）概不负责任何后果（不限于账号封停等）",
     "※ （三）您不会出售本工具或以其他形式借此工具牟利",
     "※ （四）不建议在对战/天梯等PVP模式中使用本工具",
-    "※ 仅支持国服 Windows 64 位 V5.0.15/V5.0.16 版游戏(自动核对版本, 不符则停止内存操作)",
+    "※ 仅支持 offsets.dat / 内置表里有完整四段版本号的国服 Win64 客户端(自动核对, 不符则停止内存操作)",
 ]
 for _n in NOTICE:
     print(_n)
@@ -452,8 +453,42 @@ class VS_FIXEDFILEINFO(ctypes.Structure):
                 ("dwFileDateLS", ctypes.c_uint32)]
 
 
+def _exe_file_version_string(data):
+    """从 StringFileInfo 抠 FileVersion(完整四段号)。SC2 的构建号会超过 16 位。"""
+    ver = ctypes.windll.version
+    langs = []
+    p, ln = ctypes.c_void_p(), ctypes.c_uint()
+    if ver.VerQueryValueW(data, r"\VarFileInfo\Translation",
+                          ctypes.byref(p), ctypes.byref(ln)) and ln.value >= 4 and p.value:
+        n = ln.value // 4
+        raw = ctypes.cast(p, ctypes.POINTER(ctypes.c_ushort * (n * 2))).contents
+        langs = [(raw[i * 2], raw[i * 2 + 1]) for i in range(n)]
+    # 国服 SC2 实测 Translation = 000004B0(lang=0); 再试几组常见值兜底
+    for extra in ((0, 0x04B0), (0x0804, 0x04B0), (0x0409, 0x04B0), (0x0409, 0x04E4)):
+        if extra not in langs:
+            langs.append(extra)
+    for lang, cp in langs:
+        p2, ln2 = ctypes.c_void_p(), ctypes.c_uint()
+        sub = f"\\StringFileInfo\\{lang:04X}{cp:04X}\\FileVersion"
+        if not ver.VerQueryValueW(data, sub, ctypes.byref(p2), ctypes.byref(ln2)) or not p2.value:
+            continue
+        s = ctypes.wstring_at(p2).strip()
+        for tok in s.replace(",", ".").split():
+            bits = tok.split(".")
+            if len(bits) == 4 and all(b.isdigit() for b in bits):
+                return tok
+    return None
+
+
 def _exe_file_version(exe_path):
-    """读 exe 的版本资源(语言无关的 VS_FIXEDFILEINFO), 返回 '主.次.修订.构建' 或 None"""
+    """读 exe 版本, 返回 '主.次.修订.构建' 或 None。
+
+    **优先 StringFileInfo 的 FileVersion 字符串**, 不要只信 VS_FIXEDFILEINFO:
+    那四个字段各只有 16 位。战网 5.0.17.98370 的 exe 字符串是 5.0.15.98370,
+    packed FilePrivatePart = 98370 & 0xFFFF = 32834 —— 用 packed 去查
+    offsets.dat 会对不上新条目, 版本闸误拒(或更糟: 以前用 5.0.15.* 前缀时会
+    拿 32043 的旧 NOP 去写)。
+    """
     try:
         ver = ctypes.windll.version
         size = ver.GetFileVersionInfoSizeW(exe_path, None)
@@ -462,6 +497,9 @@ def _exe_file_version(exe_path):
         data = ctypes.create_string_buffer(size)
         if not ver.GetFileVersionInfoW(exe_path, 0, size, data):
             return None
+        s = _exe_file_version_string(data)
+        if s:
+            return s
         p, ln = ctypes.c_void_p(), ctypes.c_uint()
         if not ver.VerQueryValueW(data, "\\", ctypes.byref(p), ctypes.byref(ln)) or ln.value < 52:
             return None
@@ -537,16 +575,15 @@ def get_pm():
         global NOP_SITES, OFF_STORE, OFF_R
         NOP_SITES = [(o, b, n) for o, b, n in _BUILTIN_NOP_SITES]
         OFF_STORE, OFF_R = _BUILTIN_OFF_STORE, _BUILTIN_OFF_R
-    known = ov_ok or (ver is not None and any(
-        ver == b or ver.startswith(b + ".") for b in SUPPORTED_BUILDS))
+    known = ov_ok or (ver is not None and ver in SUPPORTED_BUILDS)
     global _DISPLAY_VER
     _DISPLAY_VER = ((ov if ov_ok else {}) or {}).get("display") or (
         _BUILTIN_DISPLAY if ver == _BUILTIN_EXE_VER else ver)
     if not known and CFG.get("check_version", True):
         if not _VER_WARNED:      # 详细说明只打一次(否则每按一次快捷键就重印5行)
             _VER_WARNED = True
-            print(f"[{ts()}] [版本] 检测到游戏版本 {ver or '未知'}, 本工具内置偏移仅实测支持 "
-                  f"{'/'.join(SUPPORTED_BUILDS)}(64位)!")
+            print(f"[{ts()}] [版本] 检测到游戏版本 {ver or '未知'}, 本工具仅对 offsets.dat 条目"
+                  f"与内置精确版本 {'/'.join(SUPPORTED_BUILDS)} 放行(64位)!")
             print(f"[{ts()}] [版本] 内存偏移按这些版本写死, 为防写坏已停止内存操作。")
             print(f"[{ts()}] [版本] 适配方法: 在 offsets.dat 加本版本条目(方法见 README.txt); "
                   f"或到发布页获取适配版; 或在 config.json 设 \"check_version\": false 自行尝试(风险自负)。")
@@ -736,6 +773,18 @@ def print_status():
 
 
 # ---------------- 内存配方 ----------------
+def _nop_sites_mismatch():
+    """当前位置不是'已 NOP'也不是'预期原始字节'的位点。偏移过期时绝不能写。"""
+    bad = []
+    for off, orig, name in NOP_SITES:
+        cur = rd(rt(off), 2)
+        if cur is None:
+            bad.append((off, name, None))
+        elif cur not in (NOP_BYTE, orig):
+            bad.append((off, name, cur))
+    return bad
+
+
 def ensure_nop():
     pm, base = get_pm()
     if pm is None:
@@ -745,9 +794,14 @@ def ensure_nop():
     nop, _s, _r = read_state()
     if nop == "nop":
         return True
-    if nop == "mixed":
-        print(f"[{ts()}] [NOP] 状态异常, 不动")
-
+    mismatch = _nop_sites_mismatch()
+    if mismatch or nop != "orig":
+        # orig 以外(mixed / ?? / 读失败)一律不写: 5.0.15.98370 上旧偏移把
+        # jz/call 打成 90 90, 一点选项就卡死进程。
+        detail = "; ".join(
+            f"0x{off:X}({name})={cur.hex() if cur else '读失败'}"
+            for off, name, cur in mismatch) or f"状态={nop}"
+        print(f"[{ts()}] [NOP] 原始字节与偏移表不符, 拒绝写入以防写坏: {detail}")
         return False
     for off, orig, name in NOP_SITES:
         pm.write_bytes(rt(off), NOP_BYTE, 2)
@@ -784,6 +838,13 @@ def restore_memory_recipe():
     if pm is None:
         print(f"[{ts()}] [恢复内存] {_no_game_msg()}")
 
+        return False
+    mismatch = _nop_sites_mismatch()
+    if mismatch:
+        detail = "; ".join(
+            f"0x{off:X}({name})={cur.hex() if cur else '读失败'}"
+            for off, name, cur in mismatch)
+        print(f"[{ts()}] [恢复内存] 当前位置既不是NOP也不是预期原始字节, 拒绝写回: {detail}")
         return False
     for off, orig, _n in NOP_SITES:
         pm.write_bytes(rt(off), orig, 2)
